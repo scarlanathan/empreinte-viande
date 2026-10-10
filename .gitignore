@@ -1,0 +1,24 @@
+# Environnement virtuel et caches Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Secrets et configuration locale
+.env
+.env.*
+.streamlit/secrets.toml
+
+# Éditeurs, IDE et outils locaux
+.vscode/
+.idea/
+.claude/
+*.swp
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+desktop.ini
