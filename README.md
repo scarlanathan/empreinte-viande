@@ -47,7 +47,9 @@ Une application interactive permet d'explorer les résultats :
   projections OCDE, scénario de substitution réglable, résultats du backtest.
 - **📖 Méthode & sources**.
 
-Choix de l'indicateur et de l'hypothèse sur le bœuf dans la barre latérale.
+Choix de l'indicateur et de l'hypothèse sur le bœuf dans la barre latérale. Chaque
+indicateur est expliqué dans l'application : ce qu'il mesure, ce qui est compté,
+pourquoi il compte, unités, et comparaison de l'impact d'1 kg de chaque viande.
 
 ## Installation
 

@@ -20,6 +20,104 @@ EQUIVALENTS = {
 }
 CHART_CONFIG = {"displaylogo": False, "modeBarButtonsToRemove": ["lasso2d", "select2d"]}
 
+# Fiches explicatives des indicateurs (définitions de Poore & Nemecek / Our World in Data)
+INDICATOR_INFO = {
+    "ghg": {
+        "short": "Contribution au réchauffement climatique, en équivalent CO₂.",
+        "what": "L'ensemble des gaz à effet de serre émis pour produire 1 kg de viande — "
+                "dioxyde de carbone (CO₂), méthane (CH₄), protoxyde d'azote (N₂O) — "
+                "convertis en une seule unité, le **kg d'équivalent CO₂ (kg CO₂e)**, "
+                "selon leur pouvoir de réchauffement.",
+        "scope": "Tout le cycle de vie : changement d'usage des sols (par exemple la "
+                 "déforestation), production de l'alimentation animale, élevage, "
+                 "transformation, transport et distribution.",
+        "why": "C'est la mesure de l'impact sur le climat. Les ruminants (bovins, ovins) "
+               "émettent du méthane en digérant, et l'élevage bovin mobilise beaucoup de "
+               "terres : d'où l'écart avec la volaille. Selon la FAO, l'élevage représentait "
+               "≈ 12 % des émissions humaines en 2015, dont 62 % liés aux bovins.",
+        "units": "Par habitant : kg CO₂e par an. Total : Mt CO₂e (1 Mt = 1 milliard de kg).",
+    },
+    "water": {
+        "short": "Eau douce prélevée dans les rivières, lacs et nappes.",
+        "what": "Le volume d'**eau douce prélevé** dans les rivières, les lacs et les nappes "
+                "souterraines pour produire 1 kg de viande : irrigation des cultures qui "
+                "nourrissent les animaux, abreuvement, etc.",
+        "scope": "L'eau de pluie absorbée par les cultures et les prairies **n'est pas "
+                 "comptée**. C'est pourquoi ces chiffres sont bien plus bas que les "
+                 "« empreintes eau » souvent citées (≈ 15 400 L/kg de bœuf chez "
+                 "Mekonnen & Hoekstra, qui incluent l'eau de pluie et l'eau de dilution "
+                 "des pollutions).",
+        "why": "L'eau prélevée est retirée des milieux et entre en concurrence avec les "
+               "autres usages (eau potable, industrie, écosystèmes). Sur cet indicateur, "
+               "le porc est proche du bœuf : l'écart entre viandes est bien plus faible "
+               "que pour le climat ou la surface.",
+        "units": "Par habitant : m³ par an (1 m³ = 1 000 L). "
+                 "Total : km³ (1 km³ = 1 000 milliards de litres).",
+    },
+    "land": {
+        "short": "Surface de terres mobilisée pour produire la viande.",
+        "what": "La surface nécessaire pendant un an pour produire 1 kg de viande : "
+                "**pâturages** et **terres cultivées** pour l'alimentation animale. "
+                "Unité : m²·an par kg (un m² occupé pendant un an).",
+        "scope": "Les terres utilisées dans l'élevage lui-même et dans la production "
+                 "de l'alimentation des animaux.",
+        "why": "Chaque hectare agricole est un hectare qui n'est pas une forêt ou un "
+               "milieu naturel. C'est l'indicateur où le bœuf et l'agneau se distinguent "
+               "le plus, en raison des pâturages.",
+        "units": "Par habitant : m² par an. Total : Mha, millions d'hectares "
+                 "(1 Mha = 10 000 km² ; la France métropolitaine ≈ 54 Mha, INSEE).",
+    },
+    "eutro": {
+        "short": "Pollution des eaux par l'azote et le phosphore.",
+        "what": "Les rejets de **nutriments (azote, phosphore)** vers les milieux "
+                "aquatiques — engrais des cultures fourragères, effluents d'élevage "
+                "(lisier, fumier) — exprimés en **équivalent phosphate (g PO₄e)**.",
+        "scope": "Tout le cycle de vie, comme pour les autres indicateurs.",
+        "why": "En excès dans l'eau, ces nutriments font proliférer les algues, ce qui "
+               "appauvrit l'eau en oxygène et dégrade les rivières, lacs et zones "
+               "côtières (eutrophisation).",
+        "units": "Par habitant : kg PO₄e par an. Total : kt PO₄e (1 kt = 1 million de kg).",
+    },
+}
+
+MODE_HELP = ("**Par habitant** : impact moyen d'une personne de la zone sur un an, "
+             "pour comparer des pays de tailles différentes. **Total** : impact de toute "
+             "la zone (par habitant × population), pour mesurer le poids réel d'un pays.")
+
+
+def coef_chart(coefs: pd.DataFrame, key: str) -> go.Figure:
+    """Impact d'1 kg de chaque viande pour un indicateur."""
+    ind = im.INDICATORS[key]
+    c = coefs[key].reindex(im.MEATS)
+    fig = go.Figure(go.Bar(
+        x=c.values, y=[im.MEAT_LABELS[m] for m in c.index], orientation="h",
+        marker_color=[im.MEAT_COLORS[m] for m in c.index],
+        text=[f"{fmt_auto(v)} {ind.coef_unit}" for v in c.values], textposition="auto",
+        hovertemplate="%{y} : %{x:,.1f} " + ind.coef_unit + "/kg<extra></extra>",
+    ))
+    fig.update_layout(height=200, margin=dict(l=0, r=0, t=30, b=0), xaxis_visible=False,
+                      yaxis=dict(autorange="reversed"),
+                      title=dict(text=f"Impact d'1 kg de viande ({ind.coef_unit}/kg)", font_size=13))
+    return fig
+
+
+def render_indicator_info(key: str, coefs: pd.DataFrame, where: str) -> None:
+    info, ind = INDICATOR_INFO[key], im.INDICATORS[key]
+    left, right = st.columns([3, 2])
+    left.markdown(
+        f"**Ce que ça mesure** — {info['what']}\n\n"
+        f"**Ce qui est compté** — {info['scope']}\n\n"
+        f"**Pourquoi c'est important** — {info['why']}\n\n"
+        f"**Unités** — {info['units']}"
+    )
+    right.plotly_chart(coef_chart(coefs, key), width="stretch", config=CHART_CONFIG,
+                       key=f"coef_{key}_{where}")
+    c = coefs[key]
+    right.caption(
+        f"1 kg de bœuf ≈ **{fmt(c['BEEF'] / c['POULTRY'], 1)}×** l'impact d'1 kg de volaille "
+        f"sur cet indicateur ({fmt(c['BEEF'] / c['PIG'], 1)}× celui du porc)."
+    )
+
 
 def fmt(x: float, decimals: int = 0) -> str:
     """Format français : espace fine pour les milliers, virgule décimale."""
@@ -63,6 +161,7 @@ with st.sidebar:
         "Indicateur environnemental",
         list(im.INDICATORS),
         format_func=lambda k: f"{im.INDICATORS[k].icon} {im.INDICATORS[k].label}",
+        captions=[INDICATOR_INFO[k]["short"] for k in im.INDICATORS],
     )
     beef_share = st.slider(
         "Part du bœuf issue de troupeaux à viande", 0, 100, 67, step=5, format="%d %%",
@@ -95,6 +194,10 @@ st.markdown(
     f"Combien pèse notre consommation de viande en **{ind.icon} {ind.label.lower()}** ? "
     "Consommation réelle par pays × impact moyen de chaque viande."
 )
+with st.expander(f"ℹ️ Que représente l'indicateur « {ind.label} » ?"):
+    render_indicator_info(ind_key, coefs, "top")
+    st.caption("Changez d'indicateur dans la barre latérale · les 4 indicateurs sont "
+               "détaillés dans l'onglet 📖 Méthode & sources.")
 
 tab_map, tab_subst, tab_pred, tab_method = st.tabs(
     ["🌍 Empreinte par pays", "🔀 Effet de substitution", "🔮 Prédiction 2030", "📖 Méthode & sources"]
@@ -107,7 +210,8 @@ with tab_map:
     c1, c2, c3 = st.columns([2, 3, 2])
     zone = c1.selectbox("Zone", zone_options, index=zone_options.index("Union européenne (28)"))
     year = c2.slider("Année", 2000, year_max, min(im.LAST_OBSERVED_YEAR, year_max))
-    mode = c3.segmented_control("Affichage", ["Par habitant", "Total"], default="Par habitant")
+    mode = c3.segmented_control("Affichage", ["Par habitant", "Total"], default="Par habitant",
+                                help=MODE_HELP)
     per_cap = mode != "Total"
     col, unit = ("cap", ind.cap_unit) if per_cap else ("total", ind.total_unit)
     if year > im.LAST_OBSERVED_YEAR:
@@ -127,23 +231,31 @@ with tab_map:
             f"Par habitant en {year}", f"{fmt_auto(cap)} {ind.cap_unit}",
             delta=f"{(cap / world.cap.sum() - 1) * 100:+.0f} % vs moyenne mondiale" if not world.empty else None,
             delta_color="inverse", border=True,
+            help=f"{ind.label} attribuable à la viande consommée par une personne de la zone "
+                 f"sur un an ({ind.cap_unit}). Le pourcentage compare à la moyenne mondiale.",
         )
         k2.metric(
             "Total de la zone", f"{fmt_auto(zy.total.sum())} {ind.total_unit}",
             delta=f"{(zy.total.sum() / past.total.sum() - 1) * 100:+.0f} % en 10 ans" if not past.empty else None,
             delta_color="inverse", border=True,
+            help=f"Impact de toute la zone sur un an ({ind.total_unit}) = impact par habitant "
+                 "× population. Le pourcentage compare à 10 ans plus tôt.",
         )
         beef_kg = zy.kg_cap["BEEF"] / zy.kg_cap.sum()
         beef_imp = zy.cap["BEEF"] / cap
         k3.metric(
             "Poids du bœuf", f"{beef_imp:.0%} de l'impact",
             delta=f"pour {beef_kg:.0%} des kg consommés", delta_color="off", border=True,
+            help="Part de l'impact due au bœuf, comparée à sa part dans les kg de viande "
+                 "consommés. Un écart important signifie qu'un kg de bœuf pèse bien plus "
+                 "qu'un kg d'une autre viande sur cet indicateur.",
         )
         if ind_key in EQUIVALENTS:
             per_unit, label, note = EQUIVALENTS[ind_key]
             raw_cap = (zy.kg_cap * zy.coef).sum()  # dans l'unité du coefficient
             k4.metric("Soit, par habitant et par an", f"≈ {fmt_auto(raw_cap / per_unit)}",
-                      delta=label, delta_color="off", border=True, help=note)
+                      delta=label, delta_color="off", border=True,
+                      help=f"Équivalent concret pour se représenter l'ordre de grandeur ({note}).")
         else:
             k4.metric("Consommation", f"{fmt(zy.kg_cap.sum(), 1)} kg/hab",
                       delta="de viande par an", delta_color="off", border=True)
@@ -574,11 +686,21 @@ puis × population pour le total d'une zone.
     st.dataframe(tbl.style.format("{:,.1f}"), width="stretch")
     st.caption(f"Bœuf = {beef_share:.0%} troupeau à viande + {1 - beef_share:.0%} troupeau laitier "
                "(réglable dans la barre latérale).")
+
+    st.markdown("#### Les 4 indicateurs en détail")
+    for key, ind_ in im.INDICATORS.items():
+        with st.expander(f"{ind_.icon} {ind_.label} — {INDICATOR_INFO[key]['short']}",
+                         expanded=key == ind_key):
+            render_indicator_info(key, coefs, "method")
+    st.caption("Source des définitions : Poore & Nemecek (2018) et Our World in Data ; "
+               "chiffres sur l'élevage : FAO (2023), *Pathways towards lower emissions*.")
+
     st.markdown(
         """
 #### Limites à garder en tête
-- **Coefficients mondiaux fixes** : un kg de bœuf issu de zones déforestées émet bien
-  plus que la moyenne, un kg de bœuf européen souvent moins. Les écarts entre pays
+- **Coefficients mondiaux fixes** : ce sont des moyennes mondiales, alors que l'impact
+  d'un kg de viande varie selon le système de production (par exemple si l'élevage a
+  entraîné de la déforestation). Les écarts entre pays
   reflètent donc uniquement les *quantités* et le *mix*, pas les pratiques d'élevage.
 - **Pas d'évolution technique** : les gains de productivité depuis 1990 ne sont pas
   pris en compte (coefficients de 2010 appliqués à toutes les années).
